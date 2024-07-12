@@ -1,0 +1,16 @@
+package server
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/ortin779/private_theatre_api/models"
+)
+
+func NewServer(slotsStore models.SlotStore) http.Handler {
+	router := chi.NewRouter()
+
+	addRoutes(router, slotsStore)
+
+	return router
+}
