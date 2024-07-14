@@ -53,7 +53,7 @@ func HandleCreateSlot(slotsStore models.SlotStore) http.HandlerFunc {
 			return
 		}
 
-		RespondWithJson(w, http.StatusOK, slot)
+		RespondWithJson(w, http.StatusCreated, slot)
 	}
 }
 

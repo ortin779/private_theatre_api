@@ -48,3 +48,17 @@ func HandleCreateTheatre(ts models.TheatreStore) http.HandlerFunc {
 
 	}
 }
+
+func HandleGetTheatres(ts models.TheatreStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		theatres, err := ts.GetTheatres()
+
+		if err != nil {
+			log.Println(err)
+			RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+
+		RespondWithJson(w, http.StatusOK, theatres)
+	}
+}

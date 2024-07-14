@@ -13,7 +13,9 @@ func addRoutes(c *chi.Mux, slotsStore models.SlotStore, theatreStore models.Thea
 
 	c.Get("/slots", handlers.HandleSlotsGet(slotsStore))
 	c.Post("/slots", handlers.HandleCreateSlot(slotsStore))
+
 	c.Post("/theatres", handlers.HandleCreateTheatre(theatreStore))
+	c.Get("/theatres", handlers.HandleGetTheatres(theatreStore))
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

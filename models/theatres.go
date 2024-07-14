@@ -77,7 +77,28 @@ func NewTheatreService(db *sql.DB) *TheatreService {
 }
 
 func (ts *TheatreService) GetTheatres() ([]Theatre, error) {
-	return nil, nil
+	var theatres []Theatre
+	rows, err := ts.db.Query(`
+		SELECT * FROM theatres;
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("get theatres: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var theatre Theatre
+		err := rows.Scan(&theatre.ID, &theatre.Name, &theatre.Description, &theatre.Price, &theatre.AdditionalPricePerHead, &theatre.MaxCapacity, &theatre.MinCapacity, &theatre.DefaultCapacity)
+		if err != nil {
+			return nil, fmt.Errorf("get theatres: %w", err)
+		}
+		theatres = append(theatres, theatre)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("get theatres, %w", rows.Err())
+	}
+	return theatres, nil
 }
 
 func (ts *TheatreService) Create(t Theatre, slots []string) error {
