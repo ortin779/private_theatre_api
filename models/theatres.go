@@ -61,9 +61,15 @@ type Theatre struct {
 	DefaultCapacity        int     `json:"default_capacity"`
 }
 
+type TheatreWithSlots struct {
+	Theatre
+	Slots []Slot `json:"slots"`
+}
+
 type TheatreStore interface {
 	GetTheatres() ([]Theatre, error)
 	Create(t Theatre, slots []string) error
+	GetTheatreDetails(id string) (TheatreWithSlots, error)
 }
 
 type TheatreService struct {
@@ -134,4 +140,47 @@ func (ts *TheatreService) Create(t Theatre, slots []string) error {
 	err = tx.Commit()
 
 	return err
+}
+
+func (ts *TheatreService) GetTheatreDetails(id string) (TheatreWithSlots, error) {
+	var theatreDetails TheatreWithSlots
+	row := ts.db.QueryRow(`
+		SELECT * FROM theatres
+			WHERE id = $1;
+	`, id)
+
+	err := row.Scan(&theatreDetails.ID, &theatreDetails.Name, &theatreDetails.Description, &theatreDetails.Price, &theatreDetails.AdditionalPricePerHead, &theatreDetails.MaxCapacity, &theatreDetails.MinCapacity, &theatreDetails.DefaultCapacity)
+
+	if err != nil {
+		return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", err)
+	}
+
+	var slots []Slot
+
+	rows, err := ts.db.Query(`
+		SELECT * FROM slots
+			WHERE id IN (
+			SELECT slot_id from theatre_slots WHERE theatre_id=$1
+			);
+	`, id)
+
+	if err != nil {
+		return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", err)
+	}
+
+	for rows.Next() {
+		var slot Slot
+		err := rows.Scan(&slot.ID, &slot.StartTime, &slot.EndTime)
+		if err != nil {
+			return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", err)
+		}
+		slots = append(slots, slot)
+	}
+
+	if rows.Err() != nil {
+		return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", row.Err())
+	}
+	theatreDetails.Slots = slots
+
+	return theatreDetails, nil
 }

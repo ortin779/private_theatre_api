@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
@@ -55,6 +57,27 @@ func HandleGetTheatres(ts models.TheatreStore) http.HandlerFunc {
 
 		if err != nil {
 			log.Println(err)
+			RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+
+		RespondWithJson(w, http.StatusOK, theatres)
+	}
+}
+
+func HandleGetTheatreDetails(ts models.TheatreStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			RespondWithError(w, http.StatusBadRequest, "invalid theatre id")
+		}
+
+		theatres, err := ts.GetTheatreDetails(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				RespondWithError(w, 404, "no theatre found with given details")
+				return
+			}
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
