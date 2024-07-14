@@ -47,8 +47,6 @@ func (csp CreateSlotParams) Validate() map[string]string {
 type SlotStore interface {
 	GetSlots() ([]Slot, error)
 	AddSlot(slot Slot) error
-	UpdateSlot(id int, slot Slot) error
-	DeleteSlot(id int) error
 }
 
 func NewSlotService(db *sql.DB) *SlotsService {
@@ -92,12 +90,4 @@ func (ss *SlotsService) AddSlot(slot Slot) error {
 	`, slot.ID, slot.StartTime, slot.EndTime)
 	// TODO: Handle custom errors
 	return err
-}
-
-func (ss *SlotsService) UpdateSlot(id int, slot Slot) error {
-	return nil
-}
-
-func (ss *SlotsService) DeleteSlot(id int) error {
-	return nil
 }
