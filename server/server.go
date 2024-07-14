@@ -7,10 +7,14 @@ import (
 	"github.com/ortin779/private_theatre_api/models"
 )
 
-func NewServer(slotsStore models.SlotStore, theatreStore models.TheatreStore) http.Handler {
+func NewServer(
+	slotsStore models.SlotStore,
+	theatreStore models.TheatreStore,
+	addonStore models.AddonStore,
+) http.Handler {
 	router := chi.NewRouter()
 
-	addRoutes(router, slotsStore, theatreStore)
+	addRoutes(router, slotsStore, theatreStore, addonStore)
 
 	return router
 }
