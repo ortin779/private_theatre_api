@@ -26,8 +26,9 @@ func main() {
 	defer db.Close()
 
 	slotsStore := models.NewSlotService(db)
+	theatreStore := models.NewTheatreService(db)
 
-	svr := server.NewServer(slotsStore)
+	svr := server.NewServer(slotsStore, theatreStore)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),

@@ -8,11 +8,12 @@ import (
 	"github.com/ortin779/private_theatre_api/models"
 )
 
-func addRoutes(c *chi.Mux, slotsStore models.SlotStore) {
+func addRoutes(c *chi.Mux, slotsStore models.SlotStore, theatreStore models.TheatreStore) {
 	c.Get("/healthz", healthHandler)
 
 	c.Get("/slots", handlers.HandleSlotsGet(slotsStore))
 	c.Post("/slots", handlers.HandleCreateSlot(slotsStore))
+	c.Post("/theatres", handlers.HandleCreateTheatre(theatreStore))
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
