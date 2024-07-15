@@ -76,7 +76,7 @@ type TheatreService struct {
 	db *sql.DB
 }
 
-func NewTheatreService(db *sql.DB) *TheatreService {
+func NewTheatreStore(db *sql.DB) TheatreStore {
 	return &TheatreService{
 		db: db,
 	}

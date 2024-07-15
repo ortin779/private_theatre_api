@@ -78,7 +78,7 @@ type OrderService struct {
 	db *sql.DB
 }
 
-func NewOrderServcie(db *sql.DB) *OrderService {
+func NewOrderStore(db *sql.DB) OrderStore {
 	return &OrderService{
 		db: db,
 	}

@@ -13,6 +13,7 @@ func addRoutes(
 	slotsStore models.SlotStore,
 	theatreStore models.TheatreStore,
 	addonStore models.AddonStore,
+	orderStore models.OrderStore,
 ) {
 	c.Get("/healthz", healthHandler)
 
@@ -26,6 +27,11 @@ func addRoutes(
 	c.Post("/addons", handlers.HandleCreateAddon(addonStore))
 	c.Get("/addons", handlers.HandleGetAddons(addonStore))
 	c.Get("/addons/categories", handlers.HandleGetAddonCategories(addonStore))
+
+	c.Post("/orders", handlers.HandleCreateOrder(orderStore))
+	c.Get("/orders", handlers.HandleGetAllOrders(orderStore))
+	c.Get("/orders/{orderId}", handlers.HandleGetOrderById(orderStore))
+
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

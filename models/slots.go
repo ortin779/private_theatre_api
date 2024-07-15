@@ -49,7 +49,7 @@ type SlotStore interface {
 	AddSlot(slot Slot) error
 }
 
-func NewSlotService(db *sql.DB) *SlotsService {
+func NewSlotStore(db *sql.DB) SlotStore {
 	return &SlotsService{
 		db: db,
 	}
