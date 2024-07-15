@@ -15,6 +15,11 @@ type OrderAddon struct {
 	Quantity int    `json:"quantity"`
 }
 
+type OrderAddonDetails struct {
+	Addon
+	Quantity int `json:"quantity"`
+}
+
 type OrderParams struct {
 	CustomerName  string       `json:"customer_name"`
 	CustomerEmail string       `json:"customer_email"`
@@ -64,17 +69,17 @@ func isEmailValid(e string) bool {
 }
 
 type OrderDetails struct {
-	ID            string    `json:"id"`
-	CustomerName  string    `json:"customer_name"`
-	CustomerEmail string    `json:"customer_email"`
-	PhoneNumber   string    `json:"phone_number"`
-	NoOfPersons   int       `json:"no_of_persons"`
-	TotalPrice    float64   `json:"total_price"`
-	OrderDate     time.Time `json:"order_date"`
-	Theatre       Theatre   `json:"theatre"`
-	Slot          Slot      `json:"slot"`
-	Addons        []Addon   `json:"addons"`
-	OrderedAt     time.Time `json:"ordered_at"`
+	ID            string              `json:"id"`
+	CustomerName  string              `json:"customer_name"`
+	CustomerEmail string              `json:"customer_email"`
+	PhoneNumber   string              `json:"phone_number"`
+	NoOfPersons   int                 `json:"no_of_persons"`
+	TotalPrice    float64             `json:"total_price"`
+	OrderDate     time.Time           `json:"order_date"`
+	Theatre       Theatre             `json:"theatre"`
+	Slot          Slot                `json:"slot"`
+	Addons        []OrderAddonDetails `json:"addons"`
+	OrderedAt     time.Time           `json:"ordered_at"`
 }
 
 type Order struct {
@@ -164,9 +169,146 @@ func (orderService *OrderService) Create(orderParams OrderParams) (Order, error)
 }
 
 func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
-	return []OrderDetails{}, nil
+
+	rows, err := orderService.db.Query(`SELECT
+		orders.id,
+		orders.customer_name,
+		orders.customer_email,
+		orders.phone_number,
+		orders.no_of_persons,
+		orders.total_price,
+		orders.order_date,
+		orders.ordered_at,
+		theatres.id,
+		theatres."name" ,
+		theatres.description ,
+		theatres.price ,
+		theatres.additional_price_per_head ,
+		theatres.max_capacity ,
+		theatres.min_capacity ,
+		theatres.default_capacity ,
+		slots.id ,
+		slots.start_time ,
+		slots.end_time 
+	FROM
+		orders
+	JOIN theatres ON
+		orders.theatre_id = theatres.id
+	JOIN slots ON
+		slots.id = orders.slot_id;`)
+
+	if err != nil {
+		return nil, fmt.Errorf("get orders: %w", err)
+	}
+	defer rows.Close()
+
+	orderDetailsList := make([]OrderDetails, 0, 5)
+	for rows.Next() {
+		var orderDetails OrderDetails
+		err := rows.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime)
+
+		if err != nil {
+			return nil, fmt.Errorf("get orders: %w", err)
+		}
+
+		addons, err := orderService.getAddonsForOrder(orderDetails.ID)
+
+		if err != nil {
+			return nil, fmt.Errorf("get orders: %w", err)
+		}
+
+		orderDetails.Addons = addons
+
+		orderDetailsList = append(orderDetailsList, orderDetails)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("get orders: %w", rows.Err())
+	}
+
+	return orderDetailsList, nil
 }
 
 func (orderSerice *OrderService) GetById(id string) (OrderDetails, error) {
-	return OrderDetails{}, nil
+	row := orderSerice.db.QueryRow(`SELECT
+		orders.id,
+		orders.customer_name,
+		orders.customer_email,
+		orders.phone_number,
+		orders.no_of_persons,
+		orders.total_price,
+		orders.order_date,
+		orders.ordered_at,
+		theatres.id,
+		theatres."name" ,
+		theatres.description ,
+		theatres.price ,
+		theatres.additional_price_per_head ,
+		theatres.max_capacity ,
+		theatres.min_capacity ,
+		theatres.default_capacity ,
+		slots.id ,
+		slots.start_time ,
+		slots.end_time 
+	FROM
+		orders
+	JOIN theatres ON
+		orders.theatre_id = theatres.id
+	JOIN slots ON
+		slots.id = orders.slot_id
+	WHERE orders.id=$1;`, id)
+
+	var orderDetails OrderDetails
+	err := row.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime)
+
+	if err != nil {
+		return OrderDetails{}, fmt.Errorf("get orders: %w", err)
+	}
+
+	addons, err := orderSerice.getAddonsForOrder(orderDetails.ID)
+
+	if err != nil {
+		return OrderDetails{}, fmt.Errorf("get orders: %w", err)
+	}
+
+	orderDetails.Addons = addons
+
+	return orderDetails, nil
+}
+
+func (orderService OrderService) getAddonsForOrder(id string) ([]OrderAddonDetails, error) {
+	rows, err := orderService.db.Query(`SELECT
+		addons.id,
+		addons.name,
+		addons.category,
+		addons.meta_data,
+		addons.price,
+		order_addons.quantity
+	FROM
+		order_addons
+	JOIN addons ON
+		order_addons.addon_id = addons.id
+	WHERE order_addons.order_id = $1;`, id)
+
+	if err != nil {
+		return nil, fmt.Errorf("get orders: %w", err)
+	}
+	defer rows.Close()
+
+	addons := make([]OrderAddonDetails, 0, 5)
+	for rows.Next() {
+		var addonDetails OrderAddonDetails
+		err := rows.Scan(&addonDetails.ID, &addonDetails.Name, &addonDetails.Category, &addonDetails.MetaData, &addonDetails.Price, &addonDetails.Quantity)
+
+		if err != nil {
+			return nil, fmt.Errorf("get orders: %w", err)
+		}
+		addons = append(addons, addonDetails)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("get orders: %w", rows.Err())
+	}
+
+	return addons, err
 }
