@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ortin779/private_theatre_api/ctx"
 	"github.com/ortin779/private_theatre_api/models"
 )
 
@@ -15,6 +16,7 @@ func HandleSlotsGet(slotsStore models.SlotStore) http.HandlerFunc {
 		slots, err := slotsStore.GetSlots()
 
 		if err != nil {
+			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -30,6 +32,7 @@ func HandleCreateSlot(slotsStore models.SlotStore) http.HandlerFunc {
 		err := json.NewDecoder(r.Body).Decode(&createSlotParams)
 
 		if err != nil {
+			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -40,10 +43,20 @@ func HandleCreateSlot(slotsStore models.SlotStore) http.HandlerFunc {
 			return
 		}
 
+		userId, err := ctx.UserIdValue(r.Context())
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		slot := models.Slot{
 			ID:        uuid.New().String(),
 			StartTime: convertMinutesToTime(createSlotParams.StartTime),
 			EndTime:   convertMinutesToTime(createSlotParams.EndTime),
+			CreatedBy: userId,
+			UpdatedBy: userId,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		err = slotsStore.AddSlot(slot)

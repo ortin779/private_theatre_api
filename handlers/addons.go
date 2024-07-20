@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/ortin779/private_theatre_api/ctx"
 	"github.com/ortin779/private_theatre_api/models"
 )
 
@@ -25,12 +27,22 @@ func HandleCreateAddon(addonStore models.AddonStore) http.HandlerFunc {
 			return
 		}
 
+		userId, err := ctx.UserIdValue(r.Context())
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		addon := models.Addon{
-			ID:       uuid.NewString(),
-			Name:     addonParams.Name,
-			Category: addonParams.Category,
-			Price:    addonParams.Price,
-			MetaData: addonParams.MetaData,
+			ID:        uuid.NewString(),
+			Name:      addonParams.Name,
+			Category:  addonParams.Category,
+			Price:     addonParams.Price,
+			MetaData:  addonParams.MetaData,
+			CreatedBy: userId,
+			UpdatedBy: userId,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		err = addonStore.Create(addon)

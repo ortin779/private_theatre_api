@@ -1,18 +1,14 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/ortin779/private_theatre_api/auth"
+	"github.com/ortin779/private_theatre_api/ctx"
 	"github.com/ortin779/private_theatre_api/handlers"
 )
-
-type UserIdKey string
-
-var UserIdCtxKey UserIdKey = "userId"
 
 func AdminAuthorization(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +25,7 @@ func AdminAuthorization(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserIdCtxKey, claims.UserId)
+		ctx := ctx.WithUserId(r.Context(), claims.UserId)
 		r = r.WithContext(ctx)
 
 		next(w, r)

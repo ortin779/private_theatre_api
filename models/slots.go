@@ -16,6 +16,10 @@ type Slot struct {
 	ID        string    `json:"id"`
 	StartTime time.Time `json:"start_time"`
 	EndTime   time.Time `json:"end_time"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	CreatedBy string    `json:"created_by"`
 }
 
 type CreateSlotParams struct {
@@ -69,7 +73,7 @@ func (ss *SlotsService) GetSlots() ([]Slot, error) {
 
 	for slotRows.Next() {
 		var slot Slot
-		err := slotRows.Scan(&slot.ID, &slot.StartTime, &slot.EndTime)
+		err := slotRows.Scan(&slot.ID, &slot.StartTime, &slot.EndTime, &slot.UpdatedAt, &slot.CreatedAt, &slot.CreatedBy, &slot.UpdatedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -86,8 +90,9 @@ func (ss *SlotsService) GetSlots() ([]Slot, error) {
 
 func (ss *SlotsService) AddSlot(slot Slot) error {
 	_, err := ss.db.Exec(`
-		INSERT INTO slots VALUES ($1, $2, $3)
-	`, slot.ID, slot.StartTime, slot.EndTime)
+		INSERT INTO slots(id, start_time, end_time, created_at, updated_at, created_by, updated_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, slot.ID, slot.StartTime, slot.EndTime, slot.CreatedAt, slot.UpdatedAt, slot.CreatedBy, slot.UpdatedBy)
 	// TODO: Handle custom errors
 	return err
 }

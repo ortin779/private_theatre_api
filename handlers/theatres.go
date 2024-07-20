@@ -6,8 +6,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/ortin779/private_theatre_api/ctx"
 	"github.com/ortin779/private_theatre_api/models"
 )
 
@@ -27,6 +29,12 @@ func HandleCreateTheatre(ts models.TheatreStore) http.HandlerFunc {
 			return
 		}
 
+		userId, err := ctx.UserIdValue(r.Context())
+		if err != nil {
+			RespondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		theatre := models.Theatre{
 			ID:                     uuid.NewString(),
 			Name:                   createTheatreParams.Name,
@@ -36,6 +44,10 @@ func HandleCreateTheatre(ts models.TheatreStore) http.HandlerFunc {
 			MaxCapacity:            createTheatreParams.MaxCapacity,
 			MinCapacity:            createTheatreParams.MinCapacity,
 			DefaultCapacity:        createTheatreParams.DefaultCapacity,
+			CreatedBy:              userId,
+			UpdatedBy:              userId,
+			CreatedAt:              time.Now(),
+			UpdatedAt:              time.Now(),
 		}
 
 		err = ts.Create(theatre, createTheatreParams.Slots)

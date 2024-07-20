@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
 type AddonCategory int
@@ -72,11 +73,15 @@ func (ap *AddonParams) Validate() map[string]string {
 }
 
 type Addon struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Category string   `json:"category"`
-	Price    float64  `json:"price"`
-	MetaData MetaData `json:"meta_data,omitempty"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Category  string    `json:"category"`
+	Price     float64   `json:"price"`
+	MetaData  MetaData  `json:"meta_data,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	CreatedBy string    `json:"created_by"`
 }
 
 type AddonStore interface {
@@ -96,9 +101,9 @@ func NewAddonStore(db *sql.DB) *AddonService {
 }
 
 func (as *AddonService) Create(addon Addon) error {
-	_, err := as.db.Exec(`INSERT INTO addons(id, name, category, price, meta_data)
-        VALUES ($1, $2, $3, $4, $5)
-    `, addon.ID, addon.Name, addon.Category, addon.Price, addon.MetaData)
+	_, err := as.db.Exec(`INSERT INTO addons(id, name, category, price, meta_data, created_at, updated_at, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, addon.ID, addon.Name, addon.Category, addon.Price, addon.MetaData, addon.CreatedAt, addon.UpdatedAt, addon.CreatedBy, addon.UpdatedBy)
 
 	if err != nil {
 		return fmt.Errorf("create addon: %w", err)
@@ -120,7 +125,7 @@ func (as *AddonService) GetAddons() ([]Addon, error) {
 
 	for rows.Next() {
 		var addon Addon
-		err = rows.Scan(&addon.ID, &addon.Name, &addon.Category, &addon.Price, &addon.MetaData)
+		err = rows.Scan(&addon.ID, &addon.Name, &addon.Category, &addon.Price, &addon.MetaData, &addon.UpdatedAt, &addon.CreatedAt, &addon.CreatedBy, &addon.UpdatedBy)
 		if err != nil {
 			return nil, fmt.Errorf("get addons: %w", err)
 		}

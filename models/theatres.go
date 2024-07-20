@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -51,14 +52,18 @@ func (ctp CreateTheatreParams) Validate() map[string]string {
 }
 
 type Theatre struct {
-	ID                     string  `json:"id"`
-	Name                   string  `json:"name"`
-	Description            string  `json:"description"`
-	Price                  float64 `json:"price"`
-	AdditionalPricePerHead float64 `json:"additional_price_per_head"`
-	MaxCapacity            int     `json:"max_capacity"`
-	MinCapacity            int     `json:"min_capacity"`
-	DefaultCapacity        int     `json:"default_capacity"`
+	ID                     string    `json:"id"`
+	Name                   string    `json:"name"`
+	Description            string    `json:"description"`
+	Price                  float64   `json:"price"`
+	AdditionalPricePerHead float64   `json:"additional_price_per_head"`
+	MaxCapacity            int       `json:"max_capacity"`
+	MinCapacity            int       `json:"min_capacity"`
+	DefaultCapacity        int       `json:"default_capacity"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+	UpdatedBy              string    `json:"updated_by"`
+	CreatedBy              string    `json:"created_by"`
 }
 
 type TheatreWithSlots struct {
@@ -94,7 +99,7 @@ func (ts *TheatreService) GetTheatres() ([]Theatre, error) {
 
 	for rows.Next() {
 		var theatre Theatre
-		err := rows.Scan(&theatre.ID, &theatre.Name, &theatre.Description, &theatre.Price, &theatre.AdditionalPricePerHead, &theatre.MaxCapacity, &theatre.MinCapacity, &theatre.DefaultCapacity)
+		err := rows.Scan(&theatre.ID, &theatre.Name, &theatre.Description, &theatre.Price, &theatre.AdditionalPricePerHead, &theatre.MaxCapacity, &theatre.MinCapacity, &theatre.DefaultCapacity, &theatre.UpdatedAt, &theatre.CreatedAt, &theatre.CreatedBy, &theatre.UpdatedBy)
 		if err != nil {
 			return nil, fmt.Errorf("get theatres: %w", err)
 		}
@@ -116,8 +121,8 @@ func (ts *TheatreService) Create(t Theatre, slots []string) error {
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-        INSERT INTO theatres(id, name, description, price, additional_price_per_head, max_capacity, min_capacity, default_capacity) Values ($1, $2, $3, $4, $5, $6, $7,$8);
-    `, t.ID, t.Name, t.Description, t.Price, t.AdditionalPricePerHead, t.MaxCapacity, t.MinCapacity, t.DefaultCapacity)
+        INSERT INTO theatres(id, name, description, price, additional_price_per_head, max_capacity, min_capacity, default_capacity, created_at, updated_at, created_by, updated_by) Values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+    `, t.ID, t.Name, t.Description, t.Price, t.AdditionalPricePerHead, t.MaxCapacity, t.MinCapacity, t.DefaultCapacity, t.CreatedAt, t.UpdatedAt, t.CreatedBy, t.UpdatedBy)
 
 	if err != nil {
 		return fmt.Errorf("create theatre: %w", err)
@@ -149,7 +154,7 @@ func (ts *TheatreService) GetTheatreDetails(id string) (TheatreWithSlots, error)
 			WHERE id = $1;
 	`, id)
 
-	err := row.Scan(&theatreDetails.ID, &theatreDetails.Name, &theatreDetails.Description, &theatreDetails.Price, &theatreDetails.AdditionalPricePerHead, &theatreDetails.MaxCapacity, &theatreDetails.MinCapacity, &theatreDetails.DefaultCapacity)
+	err := row.Scan(&theatreDetails.ID, &theatreDetails.Name, &theatreDetails.Description, &theatreDetails.Price, &theatreDetails.AdditionalPricePerHead, &theatreDetails.MaxCapacity, &theatreDetails.MinCapacity, &theatreDetails.DefaultCapacity, &theatreDetails.UpdatedAt, &theatreDetails.CreatedAt, &theatreDetails.CreatedBy, &theatreDetails.UpdatedBy)
 
 	if err != nil {
 		return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", err)
@@ -170,7 +175,7 @@ func (ts *TheatreService) GetTheatreDetails(id string) (TheatreWithSlots, error)
 
 	for rows.Next() {
 		var slot Slot
-		err := rows.Scan(&slot.ID, &slot.StartTime, &slot.EndTime)
+		err := rows.Scan(&slot.ID, &slot.StartTime, &slot.EndTime, &slot.UpdatedAt, &slot.CreatedAt, &slot.CreatedBy, &slot.UpdatedBy)
 		if err != nil {
 			return TheatreWithSlots{}, fmt.Errorf("get theatre details: %w", err)
 		}
