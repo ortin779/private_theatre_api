@@ -14,6 +14,7 @@ func addRoutes(
 	theatreStore models.TheatreStore,
 	addonStore models.AddonStore,
 	orderStore models.OrderStore,
+	userStore models.UserStore,
 ) {
 	c.Get("/healthz", healthHandler)
 
@@ -31,6 +32,8 @@ func addRoutes(
 	c.Post("/orders", handlers.HandleCreateOrder(orderStore))
 	c.Get("/orders", handlers.HandleGetAllOrders(orderStore))
 	c.Get("/orders/{orderId}", handlers.HandleGetOrderById(orderStore))
+
+	c.Post("/users", handlers.HandleCreateUser(userStore))
 
 }
 

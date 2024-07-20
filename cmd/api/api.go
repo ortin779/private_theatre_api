@@ -29,8 +29,9 @@ func main() {
 	theatreStore := models.NewTheatreStore(db)
 	addonStore := models.NewAddonStore(db)
 	orderStore := models.NewOrderStore(db)
+	userStore := models.NewUserStore(db)
 
-	svr := server.NewServer(slotsStore, theatreStore, addonStore, orderStore)
+	svr := server.NewServer(slotsStore, theatreStore, addonStore, orderStore, userStore)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
