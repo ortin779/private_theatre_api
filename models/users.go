@@ -2,8 +2,11 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var UserRoles = []string{
@@ -12,6 +15,11 @@ var UserRoles = []string{
 	// for the normal users as well
 	"customer",
 }
+
+var (
+	ErrNoUserWithEmail = errors.New("no user found with given email id")
+	ErrNoUserWithId    = errors.New("no user found with given user id")
+)
 
 type UserParams struct {
 	Name     string   `json:"name"`
@@ -52,6 +60,7 @@ type User struct {
 type UserStore interface {
 	Create(user User) error
 	GetByEmail(email string) (User, error)
+	GetByUserId(userId string) (User, error)
 }
 
 type UserService struct {
@@ -76,5 +85,32 @@ func (usrService *UserService) Create(user User) error {
 }
 
 func (usrService *UserService) GetByEmail(email string) (User, error) {
-	return User{}, nil
+	row := usrService.db.QueryRow(`SELECT * FROM users
+		WHERE email=$1;`, email)
+
+	var user User
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, pgtype.NewMap().SQLScanner(&user.Roles))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, ErrNoUserWithEmail
+		}
+		return User{}, err
+	}
+	return user, nil
+}
+
+func (usrService *UserService) GetByUserId(userId string) (User, error) {
+	row := usrService.db.QueryRow(`SELECT * FROM users
+		WHERE id=$1;`, userId)
+
+	var user User
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Roles)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, ErrNoUserWithId
+		}
+		return User{}, err
+	}
+
+	return user, nil
 }

@@ -35,6 +35,9 @@ func addRoutes(
 
 	c.Post("/users", handlers.HandleCreateUser(userStore))
 
+	c.Post("/login", handlers.Login(userStore))
+	c.Post("/refresh-token", handlers.RefreshToken(userStore))
+
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
