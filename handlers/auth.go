@@ -83,18 +83,14 @@ func RefreshToken(userStore models.UserStore) http.HandlerFunc {
 			return
 		}
 
-		err = auth.ValidateToken(refreshBody.RefreshToken)
+		claims, err := auth.ValidateToken(refreshBody.RefreshToken)
 
 		if err != nil {
 			log.Println(err)
-			RespondWithError(w, http.StatusUnauthorized, err.Error())
-			return
-		}
-
-		claims, err := auth.GetClaims(refreshBody.RefreshToken)
-
-		if err != nil {
-			log.Println(err)
+			if errors.Is(err, auth.ErrTokenExpiry) {
+				RespondWithError(w, http.StatusUnauthorized, err.Error())
+				return
+			}
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

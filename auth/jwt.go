@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,6 +15,10 @@ type TokenConfig struct {
 	AccessTokenExpiry  int
 	RefreshTokenExpiry int
 }
+
+var (
+	ErrTokenExpiry = errors.New("token expired")
+)
 
 func loadEnvConfig() (*TokenConfig, error) {
 	envTokenExpMins := os.Getenv("JWT_ACC_TOKEN_EXP_MINS")
@@ -75,15 +80,15 @@ func GenerateRefreshToken(userId string, roles []string) (string, error) {
 	return token.SignedString([]byte(tokenConfig.SecretKey))
 }
 
-func ValidateToken(tokenString string) error {
+func ValidateToken(tokenString string) (CustomClaims, error) {
 	claims, err := GetClaims(tokenString)
 	if err != nil {
-		return err
+		return CustomClaims{}, err
 	}
 	if claims.ExpiresAt.Before(time.Now()) {
-		return fmt.Errorf("token expired")
+		return CustomClaims{}, ErrTokenExpiry
 	}
-	return nil
+	return claims, nil
 }
 
 func GetClaims(tokenString string) (CustomClaims, error) {

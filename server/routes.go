@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/ortin779/private_theatre_api/handlers"
+	"github.com/ortin779/private_theatre_api/middleware"
 	"github.com/ortin779/private_theatre_api/models"
 )
 
@@ -18,14 +19,14 @@ func addRoutes(
 ) {
 	c.Get("/healthz", healthHandler)
 
+	c.Post("/slots", middleware.AdminAuthorization(handlers.HandleCreateSlot(slotsStore)))
 	c.Get("/slots", handlers.HandleSlotsGet(slotsStore))
-	c.Post("/slots", handlers.HandleCreateSlot(slotsStore))
 
-	c.Post("/theatres", handlers.HandleCreateTheatre(theatreStore))
+	c.Post("/theatres", middleware.AdminAuthorization(handlers.HandleCreateTheatre(theatreStore)))
 	c.Get("/theatres", handlers.HandleGetTheatres(theatreStore))
 	c.Get("/theatres/{id}", handlers.HandleGetTheatreDetails(theatreStore))
 
-	c.Post("/addons", handlers.HandleCreateAddon(addonStore))
+	c.Post("/addons", middleware.AdminAuthorization(handlers.HandleCreateAddon(addonStore)))
 	c.Get("/addons", handlers.HandleGetAddons(addonStore))
 	c.Get("/addons/categories", handlers.HandleGetAddonCategories(addonStore))
 
@@ -33,7 +34,7 @@ func addRoutes(
 	c.Get("/orders", handlers.HandleGetAllOrders(orderStore))
 	c.Get("/orders/{orderId}", handlers.HandleGetOrderById(orderStore))
 
-	c.Post("/users", handlers.HandleCreateUser(userStore))
+	c.Post("/users", middleware.AdminAuthorization(handlers.HandleCreateUser(userStore)))
 
 	c.Post("/login", handlers.Login(userStore))
 	c.Post("/refresh-token", handlers.RefreshToken(userStore))
