@@ -5,12 +5,13 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ortin779/private_theatre_api/models"
 )
 
-func HandleCreateOrder(orderStore models.OrderStore) http.HandlerFunc {
+func HandleCreateOrder(orderStore models.OrderStore, paymentService *models.RazorpayService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var orderParams models.OrderParams
 
@@ -28,7 +29,32 @@ func HandleCreateOrder(orderStore models.OrderStore) http.HandlerFunc {
 			return
 		}
 
-		order, err := orderStore.Create(orderParams)
+		normalizedPrice := orderParams.TotalPrice * 100
+
+		razorpayOrderId, err := paymentService.CreateOrder(normalizedPrice)
+
+		if err != nil {
+			log.Println(err)
+			RespondWithError(w, http.StatusInternalServerError, "something went wrong, while creating payment")
+			return
+		}
+
+		order := models.Order{
+			ID:              uuid.NewString(),
+			CustomerName:    orderParams.CustomerName,
+			CustomerEmail:   orderParams.CustomerEmail,
+			PhoneNumber:     orderParams.PhoneNumber,
+			TheatreId:       orderParams.TheatreId,
+			Addons:          orderParams.Addons,
+			SlotId:          orderParams.SlotId,
+			NoOfPersons:     orderParams.NoOfPersons,
+			TotalPrice:      orderParams.TotalPrice,
+			OrderDate:       orderParams.OrderDate,
+			OrderedAt:       time.Now(),
+			RazorpayOrderId: razorpayOrderId,
+		}
+
+		err = orderStore.Create(order)
 
 		if err != nil {
 			log.Println(err)
@@ -48,6 +74,7 @@ func HandleGetAllOrders(orderStore models.OrderStore) http.HandlerFunc {
 		orders, err := orderStore.GetAll()
 
 		if err != nil {
+			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

@@ -16,6 +16,7 @@ func addRoutes(
 	addonStore models.AddonStore,
 	orderStore models.OrderStore,
 	userStore models.UserStore,
+	paymentService *models.RazorpayService,
 ) {
 	c.Get("/healthz", healthHandler)
 
@@ -30,7 +31,7 @@ func addRoutes(
 	c.Get("/addons", handlers.HandleGetAddons(addonStore))
 	c.Get("/addons/categories", handlers.HandleGetAddonCategories(addonStore))
 
-	c.Post("/orders", handlers.HandleCreateOrder(orderStore))
+	c.Post("/orders", handlers.HandleCreateOrder(orderStore, paymentService))
 	c.Get("/orders", handlers.HandleGetAllOrders(orderStore))
 	c.Get("/orders/{orderId}", handlers.HandleGetOrderById(orderStore))
 
@@ -38,6 +39,8 @@ func addRoutes(
 
 	c.Post("/login", handlers.Login(userStore))
 	c.Post("/refresh-token", handlers.RefreshToken(userStore))
+
+	c.Post("/verify-payment", handlers.VerifyPayment(paymentService))
 
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/ortin779/private_theatre_api/db"
+	"github.com/ortin779/private_theatre_api/models"
 )
 
 type Config struct {
@@ -14,6 +15,7 @@ type Config struct {
 		Port string
 	}
 	Postgres db.PostgresConfig
+	Razorpay models.RazorpayConfig
 }
 
 func LoadConfigFromEnv() (*Config, error) {
@@ -37,6 +39,10 @@ func LoadConfigFromEnv() (*Config, error) {
 			Password: os.Getenv("DB_PASSWORD"),
 			DBName:   os.Getenv("DB_DBNAME"),
 			SSLMode:  os.Getenv("DB_SSLMODE"),
+		},
+		Razorpay: models.RazorpayConfig{
+			Key:    os.Getenv("RAZORPAY_KEY"),
+			Secret: os.Getenv("RAZORPAY_SECRET"),
 		},
 	}, nil
 }

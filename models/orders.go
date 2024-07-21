@@ -20,6 +20,14 @@ type OrderAddonDetails struct {
 	Quantity int `json:"quantity"`
 }
 
+type PaymentStatus string
+
+var (
+	Success PaymentStatus = "success"
+	Failure PaymentStatus = "failure"
+	Pending PaymentStatus = "pending"
+)
+
 type OrderParams struct {
 	CustomerName  string       `json:"customer_name"`
 	CustomerEmail string       `json:"customer_email"`
@@ -27,7 +35,7 @@ type OrderParams struct {
 	TheatreId     string       `json:"theatre_id"`
 	SlotId        string       `json:"slot_id"`
 	NoOfPersons   int          `json:"no_of_persons"`
-	TotalPrice    float64      `json:"total_price"`
+	TotalPrice    int          `json:"total_price"`
 	OrderDate     time.Time    `json:"order_date"`
 	Addons        []OrderAddon `json:"addons"`
 }
@@ -69,34 +77,37 @@ func isEmailValid(e string) bool {
 }
 
 type OrderDetails struct {
-	ID            string              `json:"id"`
-	CustomerName  string              `json:"customer_name"`
-	CustomerEmail string              `json:"customer_email"`
-	PhoneNumber   string              `json:"phone_number"`
-	NoOfPersons   int                 `json:"no_of_persons"`
-	TotalPrice    float64             `json:"total_price"`
-	OrderDate     time.Time           `json:"order_date"`
-	Theatre       Theatre             `json:"theatre"`
-	Slot          Slot                `json:"slot"`
-	Addons        []OrderAddonDetails `json:"addons"`
-	OrderedAt     time.Time           `json:"ordered_at"`
+	ID             string              `json:"id"`
+	CustomerName   string              `json:"customer_name"`
+	CustomerEmail  string              `json:"customer_email"`
+	PhoneNumber    string              `json:"phone_number"`
+	NoOfPersons    int                 `json:"no_of_persons"`
+	TotalPrice     int                 `json:"total_price"`
+	OrderDate      time.Time           `json:"order_date"`
+	Theatre        Theatre             `json:"theatre"`
+	Slot           Slot                `json:"slot"`
+	Addons         []OrderAddonDetails `json:"addons"`
+	OrderedAt      time.Time           `json:"ordered_at"`
+	PaymentDetails OrderPayment        `json:"payment_details"`
 }
 
 type Order struct {
-	ID            string    `json:"id"`
-	CustomerName  string    `json:"customer_name"`
-	CustomerEmail string    `json:"customer_email"`
-	PhoneNumber   string    `json:"phone_number"`
-	TheatreId     string    `json:"theatre_id"`
-	SlotId        string    `json:"slot_id"`
-	NoOfPersons   int       `json:"no_of_persons"`
-	TotalPrice    float64   `json:"total_price"`
-	OrderDate     time.Time `json:"order_date"`
-	OrderedAt     time.Time `json:"ordered_at"`
+	ID              string       `json:"id"`
+	CustomerName    string       `json:"customer_name"`
+	CustomerEmail   string       `json:"customer_email"`
+	PhoneNumber     string       `json:"phone_number"`
+	TheatreId       string       `json:"theatre_id"`
+	SlotId          string       `json:"slot_id"`
+	Addons          []OrderAddon `json:"addons"`
+	NoOfPersons     int          `json:"no_of_persons"`
+	TotalPrice      int          `json:"total_price"`
+	OrderDate       time.Time    `json:"order_date"`
+	OrderedAt       time.Time    `json:"ordered_at"`
+	RazorpayOrderId string       `json:"razorpay_order_id"`
 }
 
 type OrderStore interface {
-	Create(orderParams OrderParams) (Order, error)
+	Create(order Order) error
 	GetAll() ([]OrderDetails, error)
 	GetById(id string) (OrderDetails, error)
 }
@@ -113,25 +124,13 @@ func NewOrderStore(db *sql.DB) OrderStore {
 
 var ErrDuplicateOrder = errors.New("theatre already booked for that day and slot")
 
-func (orderService *OrderService) Create(orderParams OrderParams) (Order, error) {
+func (orderService *OrderService) Create(order Order) error {
 	tx, err := orderService.db.Begin()
 
 	if err != nil {
-		return Order{}, fmt.Errorf("create order: %w", err)
+		return fmt.Errorf("create order: %w", err)
 	}
 	defer tx.Rollback()
-
-	order := Order{
-		ID:            uuid.NewString(),
-		CustomerName:  orderParams.CustomerName,
-		CustomerEmail: orderParams.CustomerEmail,
-		PhoneNumber:   orderParams.PhoneNumber,
-		TotalPrice:    orderParams.TotalPrice,
-		OrderDate:     orderParams.OrderDate,
-		NoOfPersons:   orderParams.NoOfPersons,
-		SlotId:        orderParams.SlotId,
-		TheatreId:     orderParams.TheatreId,
-	}
 
 	row := tx.QueryRow(`SELECT id FROM orders
         WHERE theatre_id = $1 AND slot_id = $2 AND order_date = $3;
@@ -139,33 +138,33 @@ func (orderService *OrderService) Create(orderParams OrderParams) (Order, error)
 
 	err = row.Scan()
 	if !errors.Is(err, sql.ErrNoRows) && err != nil {
-		return Order{}, ErrDuplicateOrder
+		return ErrDuplicateOrder
 	}
 
 	row = tx.QueryRow(`INSERT INTO orders(
-    id,customer_name,customer_email,phone_number,no_of_persons,total_price,order_date,theatre_id, slot_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ordered_at;`, order.ID, order.CustomerName, order.CustomerEmail, order.PhoneNumber, order.NoOfPersons, order.TotalPrice, order.OrderDate.Format(time.DateOnly), order.TheatreId, order.SlotId)
+    id,customer_name,customer_email,phone_number,no_of_persons,total_price,order_date,theatre_id, slot_id, razorpay_order_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ordered_at;`, order.ID, order.CustomerName, order.CustomerEmail, order.PhoneNumber, order.NoOfPersons, order.TotalPrice, order.OrderDate.Format(time.DateOnly), order.TheatreId, order.SlotId, order.RazorpayOrderId)
 
 	if err := row.Scan(&order.OrderedAt); err != nil {
-		return Order{}, fmt.Errorf("create order: %w", err)
+		return fmt.Errorf("create order: %w", err)
 	}
 
 	stmt, err := tx.Prepare("INSERT INTO order_addons(order_id, addon_id, quantity) VALUES ($1,$2,$3);")
 	if err != nil {
-		return Order{}, fmt.Errorf("create order: %w", err)
+		return fmt.Errorf("create order: %w", err)
 	}
 
-	for _, addon := range orderParams.Addons {
+	for _, addon := range order.Addons {
 		_, err = stmt.Exec(order.ID, addon.ID, addon.Quantity)
 		if err != nil {
-			return Order{}, fmt.Errorf("create order: %w", err)
+			return fmt.Errorf("create order: %w", err)
 		}
 	}
 	err = tx.Commit()
 	if err != nil {
-		return Order{}, fmt.Errorf("create order: %w", err)
+		return fmt.Errorf("create order: %w", err)
 	}
 
-	return order, nil
+	return nil
 }
 
 func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
@@ -189,13 +188,19 @@ func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
 		theatres.default_capacity ,
 		slots.id ,
 		slots.start_time ,
-		slots.end_time 
+		slots.end_time,
+		payments.razorpay_order_id,
+		payments.razorpay_payment_id,
+		payments.razorpay_signature,
+		payments.status
 	FROM
 		orders
 	JOIN theatres ON
 		orders.theatre_id = theatres.id
 	JOIN slots ON
-		slots.id = orders.slot_id;`)
+		slots.id = orders.slot_id
+	JOIN payments ON
+		orders.razorpay_order_id = payments.razorpay_order_id;`)
 
 	if err != nil {
 		return nil, fmt.Errorf("get orders: %w", err)
@@ -205,7 +210,7 @@ func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
 	orderDetailsList := make([]OrderDetails, 0, 5)
 	for rows.Next() {
 		var orderDetails OrderDetails
-		err := rows.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime)
+		err := rows.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime, &orderDetails.PaymentDetails.RazorpayOrderId, &orderDetails.PaymentDetails.RazorpayPaymentId, &orderDetails.PaymentDetails.RazorpaySignature, &orderDetails.PaymentDetails.Status)
 
 		if err != nil {
 			return nil, fmt.Errorf("get orders: %w", err)
@@ -246,10 +251,22 @@ func (orderSerice *OrderService) GetById(id string) (OrderDetails, error) {
 		theatres.additional_price_per_head ,
 		theatres.max_capacity ,
 		theatres.min_capacity ,
-		theatres.default_capacity ,
+		theatres.default_capacity,
+		theatres.created_at,
+		theatres.updated_at,
+		theatres.created_by,
+		theatres.updated_by
 		slots.id ,
 		slots.start_time ,
-		slots.end_time 
+		slots.end_time,
+		slots.created_at,
+		slots.updated_at,
+		slots.created_by,
+		slots.updated_by
+		payments.razorpay_order_id,
+		payments.razorpay_payment_id,
+		payments.razorpay_signature,
+		payments.status
 	FROM
 		orders
 	JOIN theatres ON
@@ -259,7 +276,7 @@ func (orderSerice *OrderService) GetById(id string) (OrderDetails, error) {
 	WHERE orders.id=$1;`, id)
 
 	var orderDetails OrderDetails
-	err := row.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime)
+	err := row.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Theatre.CreatedAt, &orderDetails.Theatre.UpdatedAt, &orderDetails.Theatre.CreatedBy, &orderDetails.Theatre.UpdatedBy, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime, &orderDetails.Slot.CreatedAt, &orderDetails.Slot.UpdatedAt, &orderDetails.Slot.CreatedBy, &orderDetails.Slot.UpdatedBy, &orderDetails.PaymentDetails.RazorpayOrderId, &orderDetails.PaymentDetails.RazorpayPaymentId, &orderDetails.PaymentDetails.RazorpaySignature, &orderDetails.PaymentDetails.Status)
 
 	if err != nil {
 		return OrderDetails{}, fmt.Errorf("get orders: %w", err)
@@ -283,6 +300,10 @@ func (orderService OrderService) getAddonsForOrder(id string) ([]OrderAddonDetai
 		addons.category,
 		addons.meta_data,
 		addons.price,
+		addons.created_at,
+		addons.updated_at,
+		addons.created_by,
+		addons.updated_by,
 		order_addons.quantity
 	FROM
 		order_addons
@@ -298,7 +319,7 @@ func (orderService OrderService) getAddonsForOrder(id string) ([]OrderAddonDetai
 	addons := make([]OrderAddonDetails, 0, 5)
 	for rows.Next() {
 		var addonDetails OrderAddonDetails
-		err := rows.Scan(&addonDetails.ID, &addonDetails.Name, &addonDetails.Category, &addonDetails.MetaData, &addonDetails.Price, &addonDetails.Quantity)
+		err := rows.Scan(&addonDetails.ID, &addonDetails.Name, &addonDetails.Category, &addonDetails.MetaData, &addonDetails.Price, &addonDetails.CreatedAt, &addonDetails.UpdatedAt, &addonDetails.CreatedBy, &addonDetails.UpdatedBy, &addonDetails.Quantity)
 
 		if err != nil {
 			return nil, fmt.Errorf("get orders: %w", err)

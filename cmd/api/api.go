@@ -30,8 +30,9 @@ func main() {
 	addonStore := models.NewAddonStore(db)
 	orderStore := models.NewOrderStore(db)
 	userStore := models.NewUserStore(db)
+	paymentService := models.NewRazorpayService(db, cfg.Razorpay)
 
-	svr := server.NewServer(slotsStore, theatreStore, addonStore, orderStore, userStore)
+	svr := server.NewServer(slotsStore, theatreStore, addonStore, orderStore, userStore, paymentService)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),

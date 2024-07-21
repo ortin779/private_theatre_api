@@ -13,10 +13,11 @@ func NewServer(
 	addonStore models.AddonStore,
 	orderStore models.OrderStore,
 	userStore models.UserStore,
+	razorpayService *models.RazorpayService,
 ) http.Handler {
 	router := chi.NewRouter()
 
-	addRoutes(router, slotsStore, theatreStore, addonStore, orderStore, userStore)
+	addRoutes(router, slotsStore, theatreStore, addonStore, orderStore, userStore, razorpayService)
 
 	return router
 }
