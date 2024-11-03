@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ortin779/private_theatre_api/ctx"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/ctx"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func HandleCreateTheatre(ts models.TheatreStore) http.HandlerFunc {
+func HandleCreateTheatre(ts service.TheatresService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var createTheatreParams models.CreateTheatreParams
 
@@ -63,7 +64,7 @@ func HandleCreateTheatre(ts models.TheatreStore) http.HandlerFunc {
 	}
 }
 
-func HandleGetTheatres(ts models.TheatreStore) http.HandlerFunc {
+func HandleGetTheatres(ts service.TheatresService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		theatres, err := ts.GetTheatres()
 
@@ -77,7 +78,7 @@ func HandleGetTheatres(ts models.TheatreStore) http.HandlerFunc {
 	}
 }
 
-func HandleGetTheatreDetails(ts models.TheatreStore) http.HandlerFunc {
+func HandleGetTheatreDetails(ts service.TheatresService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if id == "" {

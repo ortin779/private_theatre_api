@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/ortin779/private_theatre_api/api/models"
 	"github.com/ortin779/private_theatre_api/db"
-	"github.com/ortin779/private_theatre_api/models"
 )
 
 type Config struct {

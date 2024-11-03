@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -8,10 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func HandleCreateOrder(orderStore models.OrderStore, paymentService *models.RazorpayService) http.HandlerFunc {
+func HandleCreateOrder(ordersService service.OrdersService, paymentService service.RazorpayService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var orderParams models.OrderParams
 
@@ -54,11 +56,10 @@ func HandleCreateOrder(orderStore models.OrderStore, paymentService *models.Razo
 			RazorpayOrderId: razorpayOrderId,
 		}
 
-		err = orderStore.Create(order)
+		err = ordersService.Create(order)
 
 		if err != nil {
-			log.Println(err)
-			if errors.Is(err, models.ErrDuplicateOrder) {
+			if errors.Is(err, sql.ErrNoRows) {
 				RespondWithError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -69,9 +70,9 @@ func HandleCreateOrder(orderStore models.OrderStore, paymentService *models.Razo
 	}
 }
 
-func HandleGetAllOrders(orderStore models.OrderStore) http.HandlerFunc {
+func HandleGetAllOrders(ordersService service.OrdersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		orders, err := orderStore.GetAll()
+		orders, err := ordersService.GetAll()
 
 		if err != nil {
 			log.Println(err)
@@ -83,7 +84,7 @@ func HandleGetAllOrders(orderStore models.OrderStore) http.HandlerFunc {
 	}
 }
 
-func HandleGetOrderById(orderStore models.OrderStore) http.HandlerFunc {
+func HandleGetOrderById(ordersService service.OrdersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		orderId := r.PathValue("orderId")
 		if _, err := uuid.Parse(orderId); err != nil {
@@ -91,7 +92,7 @@ func HandleGetOrderById(orderStore models.OrderStore) http.HandlerFunc {
 			return
 		}
 
-		orderDetails, err := orderStore.GetById(orderId)
+		orderDetails, err := ordersService.GetById(orderId)
 		if err != nil {
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return

@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ortin779/private_theatre_api/ctx"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/ctx"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func HandleCreateAddon(addonStore models.AddonStore) http.HandlerFunc {
+func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var addonParams models.AddonParams
 
@@ -45,7 +46,7 @@ func HandleCreateAddon(addonStore models.AddonStore) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		err = addonStore.Create(addon)
+		err = addonsService.CreateAddon(addon)
 		if err != nil {
 			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
@@ -56,9 +57,9 @@ func HandleCreateAddon(addonStore models.AddonStore) http.HandlerFunc {
 	}
 }
 
-func HandleGetAddons(addonStore models.AddonStore) http.HandlerFunc {
+func HandleGetAddons(addonService service.AddonsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		addons, err := addonStore.GetAddons()
+		addons, err := addonService.GetAllAddons()
 		if err != nil {
 			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
@@ -69,9 +70,9 @@ func HandleGetAddons(addonStore models.AddonStore) http.HandlerFunc {
 	}
 }
 
-func HandleGetAddonCategories(addonStore models.AddonStore) http.HandlerFunc {
+func HandleGetAddonCategories(addonService service.AddonsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		categories := addonStore.GetCategories()
+		categories := addonService.GetCategories()
 		RespondWithJson(w, http.StatusCreated, categories)
 	}
 }

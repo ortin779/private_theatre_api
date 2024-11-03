@@ -6,10 +6,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func VerifyPayment(paymentService *models.RazorpayService) http.HandlerFunc {
+func VerifyPayment(paymentService service.RazorpayService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var paymentBody models.PaymentVerificationBody
 
@@ -24,7 +25,7 @@ func VerifyPayment(paymentService *models.RazorpayService) http.HandlerFunc {
 		err = paymentService.VerifyPayment(paymentBody)
 		if err != nil {
 			log.Println(err)
-			if errors.Is(err, models.ErrPaymentSingatureFailure) {
+			if errors.Is(err, service.ErrPaymentSignatureFailure) {
 				RespondWithError(w, http.StatusBadRequest, "payment info is invalid")
 				return
 			}

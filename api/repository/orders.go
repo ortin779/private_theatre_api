@@ -1,147 +1,53 @@
-package models
+package repository
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
-	"regexp"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/ortin779/private_theatre_api/api/models"
 )
 
-type OrderAddon struct {
-	ID       string `json:"id"`
-	Quantity int    `json:"quantity"`
+type OrdersRepository interface {
+	Create(order models.Order) error
+	GetAll() ([]models.OrderDetails, error)
+	GetById(id string) (*models.OrderDetails, error)
+	GetOrderByTheatreIdAndSlotIdAndOrderDate(slotId, theatreId string, orderDate time.Time) (*models.OrderDetails, error)
 }
 
-type OrderAddonDetails struct {
-	Addon
-	Quantity int `json:"quantity"`
-}
-
-type PaymentStatus string
-
-var (
-	Success PaymentStatus = "success"
-	Failure PaymentStatus = "failure"
-	Pending PaymentStatus = "pending"
-)
-
-type OrderParams struct {
-	CustomerName  string       `json:"customer_name"`
-	CustomerEmail string       `json:"customer_email"`
-	PhoneNumber   string       `json:"phone_number"`
-	TheatreId     string       `json:"theatre_id"`
-	SlotId        string       `json:"slot_id"`
-	NoOfPersons   int          `json:"no_of_persons"`
-	TotalPrice    int          `json:"total_price"`
-	OrderDate     time.Time    `json:"order_date"`
-	Addons        []OrderAddon `json:"addons"`
-}
-
-func (op *OrderParams) Validate() map[string]string {
-	errs := make(map[string]string)
-
-	if len(op.PhoneNumber) == 0 {
-		errs["phone_number"] = "phone number can not be empty"
-	}
-	if len(op.CustomerName) == 0 {
-		errs["customer_name"] = "phone number can not be empty"
-	}
-	if !isEmailValid(op.CustomerEmail) {
-		errs["customer_email"] = "invalid email address"
-	}
-	if _, err := uuid.Parse(op.SlotId); err != nil {
-		errs["slot_id"] = "slot id must be a valid uuid"
-	}
-	if op.TotalPrice <= 0 {
-		errs["total_price"] = "order value must be greater than zero"
-	}
-	for _, addon := range op.Addons {
-		if _, err := uuid.Parse(addon.ID); err != nil {
-			errs["addons"] = "addon id must be a valid uuid"
-			break
-		}
-		if addon.Quantity <= 0 {
-			errs["addons"] = "addon quantity should not be less than 1"
-			break
-		}
-	}
-	return errs
-}
-
-func isEmailValid(e string) bool {
-	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
-	return emailRegex.MatchString(e)
-}
-
-type OrderDetails struct {
-	ID             string              `json:"id"`
-	CustomerName   string              `json:"customer_name"`
-	CustomerEmail  string              `json:"customer_email"`
-	PhoneNumber    string              `json:"phone_number"`
-	NoOfPersons    int                 `json:"no_of_persons"`
-	TotalPrice     int                 `json:"total_price"`
-	OrderDate      time.Time           `json:"order_date"`
-	Theatre        Theatre             `json:"theatre"`
-	Slot           Slot                `json:"slot"`
-	Addons         []OrderAddonDetails `json:"addons"`
-	OrderedAt      time.Time           `json:"ordered_at"`
-	PaymentDetails OrderPayment        `json:"payment_details"`
-}
-
-type Order struct {
-	ID              string       `json:"id"`
-	CustomerName    string       `json:"customer_name"`
-	CustomerEmail   string       `json:"customer_email"`
-	PhoneNumber     string       `json:"phone_number"`
-	TheatreId       string       `json:"theatre_id"`
-	SlotId          string       `json:"slot_id"`
-	Addons          []OrderAddon `json:"addons"`
-	NoOfPersons     int          `json:"no_of_persons"`
-	TotalPrice      int          `json:"total_price"`
-	OrderDate       time.Time    `json:"order_date"`
-	OrderedAt       time.Time    `json:"ordered_at"`
-	RazorpayOrderId string       `json:"razorpay_order_id"`
-}
-
-type OrderStore interface {
-	Create(order Order) error
-	GetAll() ([]OrderDetails, error)
-	GetById(id string) (OrderDetails, error)
-}
-
-type OrderService struct {
+type ordersRepository struct {
 	db *sql.DB
 }
 
-func NewOrderStore(db *sql.DB) OrderStore {
-	return &OrderService{
+func NewOrderRepository(db *sql.DB) OrdersRepository {
+	return &ordersRepository{
 		db: db,
 	}
 }
 
-var ErrDuplicateOrder = errors.New("theatre already booked for that day and slot")
+func (ordersRepo *ordersRepository) GetOrderByTheatreIdAndSlotIdAndOrderDate(slotId, theatreId string, orderDate time.Time) (*models.OrderDetails, error) {
+	var orderId string
+	row := ordersRepo.db.QueryRow(`SELECT id FROM orders
+        WHERE theatre_id = $1 AND slot_id = $2 AND order_date = $3;
+    `, theatreId, slotId, orderDate.Format(time.DateOnly))
 
-func (orderService *OrderService) Create(order Order) error {
-	tx, err := orderService.db.Begin()
+	err := row.Scan(&orderId)
+	if err != nil {
+		return nil, err
+	}
+
+	return ordersRepo.GetById(orderId)
+}
+
+func (ordersRepo *ordersRepository) Create(order models.Order) error {
+	tx, err := ordersRepo.db.Begin()
 
 	if err != nil {
 		return fmt.Errorf("create order: %w", err)
 	}
 	defer tx.Rollback()
 
-	row := tx.QueryRow(`SELECT id FROM orders
-        WHERE theatre_id = $1 AND slot_id = $2 AND order_date = $3;
-    `, order.TheatreId, order.SlotId, order.OrderDate.Format(time.DateOnly))
-
-	err = row.Scan()
-	if !errors.Is(err, sql.ErrNoRows) && err != nil {
-		return ErrDuplicateOrder
-	}
-
-	row = tx.QueryRow(`INSERT INTO orders(
+	row := tx.QueryRow(`INSERT INTO orders(
     id,customer_name,customer_email,phone_number,no_of_persons,total_price,order_date,theatre_id, slot_id, razorpay_order_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ordered_at;`, order.ID, order.CustomerName, order.CustomerEmail, order.PhoneNumber, order.NoOfPersons, order.TotalPrice, order.OrderDate.Format(time.DateOnly), order.TheatreId, order.SlotId, order.RazorpayOrderId)
 
 	if err := row.Scan(&order.OrderedAt); err != nil {
@@ -167,9 +73,9 @@ func (orderService *OrderService) Create(order Order) error {
 	return nil
 }
 
-func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
+func (ordersRepo *ordersRepository) GetAll() ([]models.OrderDetails, error) {
 
-	rows, err := orderService.db.Query(`SELECT
+	rows, err := ordersRepo.db.Query(`SELECT
 		orders.id,
 		orders.customer_name,
 		orders.customer_email,
@@ -207,16 +113,16 @@ func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
 	}
 	defer rows.Close()
 
-	orderDetailsList := make([]OrderDetails, 0, 5)
+	orderDetailsList := make([]models.OrderDetails, 0, 5)
 	for rows.Next() {
-		var orderDetails OrderDetails
+		var orderDetails models.OrderDetails
 		err := rows.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime, &orderDetails.PaymentDetails.RazorpayOrderId, &orderDetails.PaymentDetails.RazorpayPaymentId, &orderDetails.PaymentDetails.RazorpaySignature, &orderDetails.PaymentDetails.Status)
 
 		if err != nil {
 			return nil, fmt.Errorf("get orders: %w", err)
 		}
 
-		addons, err := orderService.getAddonsForOrder(orderDetails.ID)
+		addons, err := ordersRepo.getAddonsForOrder(orderDetails.ID)
 
 		if err != nil {
 			return nil, fmt.Errorf("get orders: %w", err)
@@ -234,8 +140,8 @@ func (orderService *OrderService) GetAll() ([]OrderDetails, error) {
 	return orderDetailsList, nil
 }
 
-func (orderSerice *OrderService) GetById(id string) (OrderDetails, error) {
-	row := orderSerice.db.QueryRow(`SELECT
+func (ordersRepo *ordersRepository) GetById(id string) (*models.OrderDetails, error) {
+	row := ordersRepo.db.QueryRow(`SELECT
 		orders.id,
 		orders.customer_name,
 		orders.customer_email,
@@ -275,26 +181,26 @@ func (orderSerice *OrderService) GetById(id string) (OrderDetails, error) {
 		slots.id = orders.slot_id
 	WHERE orders.id=$1;`, id)
 
-	var orderDetails OrderDetails
+	var orderDetails models.OrderDetails
 	err := row.Scan(&orderDetails.ID, &orderDetails.CustomerName, &orderDetails.CustomerEmail, &orderDetails.PhoneNumber, &orderDetails.NoOfPersons, &orderDetails.TotalPrice, &orderDetails.OrderDate, &orderDetails.OrderedAt, &orderDetails.Theatre.ID, &orderDetails.Theatre.Name, &orderDetails.Theatre.Description, &orderDetails.Theatre.Price, &orderDetails.Theatre.AdditionalPricePerHead, &orderDetails.Theatre.MaxCapacity, &orderDetails.Theatre.MinCapacity, &orderDetails.Theatre.DefaultCapacity, &orderDetails.Theatre.CreatedAt, &orderDetails.Theatre.UpdatedAt, &orderDetails.Theatre.CreatedBy, &orderDetails.Theatre.UpdatedBy, &orderDetails.Slot.ID, &orderDetails.Slot.StartTime, &orderDetails.Slot.EndTime, &orderDetails.Slot.CreatedAt, &orderDetails.Slot.UpdatedAt, &orderDetails.Slot.CreatedBy, &orderDetails.Slot.UpdatedBy, &orderDetails.PaymentDetails.RazorpayOrderId, &orderDetails.PaymentDetails.RazorpayPaymentId, &orderDetails.PaymentDetails.RazorpaySignature, &orderDetails.PaymentDetails.Status)
 
 	if err != nil {
-		return OrderDetails{}, fmt.Errorf("get orders: %w", err)
+		return nil, fmt.Errorf("get orders: %w", err)
 	}
 
-	addons, err := orderSerice.getAddonsForOrder(orderDetails.ID)
+	addons, err := ordersRepo.getAddonsForOrder(orderDetails.ID)
 
 	if err != nil {
-		return OrderDetails{}, fmt.Errorf("get orders: %w", err)
+		return nil, fmt.Errorf("get orders: %w", err)
 	}
 
 	orderDetails.Addons = addons
 
-	return orderDetails, nil
+	return &orderDetails, nil
 }
 
-func (orderService OrderService) getAddonsForOrder(id string) ([]OrderAddonDetails, error) {
-	rows, err := orderService.db.Query(`SELECT
+func (ordersRepo *ordersRepository) getAddonsForOrder(id string) ([]models.OrderAddonDetails, error) {
+	rows, err := ordersRepo.db.Query(`SELECT
 		addons.id,
 		addons.name,
 		addons.category,
@@ -316,9 +222,9 @@ func (orderService OrderService) getAddonsForOrder(id string) ([]OrderAddonDetai
 	}
 	defer rows.Close()
 
-	addons := make([]OrderAddonDetails, 0, 5)
+	addons := make([]models.OrderAddonDetails, 0, 5)
 	for rows.Next() {
-		var addonDetails OrderAddonDetails
+		var addonDetails models.OrderAddonDetails
 		err := rows.Scan(&addonDetails.ID, &addonDetails.Name, &addonDetails.Category, &addonDetails.MetaData, &addonDetails.Price, &addonDetails.CreatedAt, &addonDetails.UpdatedAt, &addonDetails.CreatedBy, &addonDetails.UpdatedBy, &addonDetails.Quantity)
 
 		if err != nil {

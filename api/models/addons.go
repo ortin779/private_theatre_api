@@ -1,11 +1,9 @@
 package models
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 	"time"
 )
@@ -82,59 +80,4 @@ type Addon struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	UpdatedBy string    `json:"updated_by"`
 	CreatedBy string    `json:"created_by"`
-}
-
-type AddonStore interface {
-	Create(addon Addon) error
-	GetCategories() []string
-	GetAddons() ([]Addon, error)
-}
-
-type AddonService struct {
-	db *sql.DB
-}
-
-func NewAddonStore(db *sql.DB) *AddonService {
-	return &AddonService{
-		db: db,
-	}
-}
-
-func (as *AddonService) Create(addon Addon) error {
-	_, err := as.db.Exec(`INSERT INTO addons(id, name, category, price, meta_data, created_at, updated_at, created_by, updated_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `, addon.ID, addon.Name, addon.Category, addon.Price, addon.MetaData, addon.CreatedAt, addon.UpdatedAt, addon.CreatedBy, addon.UpdatedBy)
-
-	if err != nil {
-		return fmt.Errorf("create addon: %w", err)
-	}
-	return nil
-}
-
-func (as *AddonService) GetCategories() []string {
-	return AddonCategories
-}
-
-func (as *AddonService) GetAddons() ([]Addon, error) {
-	rows, err := as.db.Query(`SELECT * FROM addons;`)
-	if err != nil {
-		return nil, fmt.Errorf("get addons: %w", err)
-	}
-	defer rows.Close()
-	var addons []Addon
-
-	for rows.Next() {
-		var addon Addon
-		err = rows.Scan(&addon.ID, &addon.Name, &addon.Category, &addon.Price, &addon.MetaData, &addon.UpdatedAt, &addon.CreatedAt, &addon.CreatedBy, &addon.UpdatedBy)
-		if err != nil {
-			return nil, fmt.Errorf("get addons: %w", err)
-		}
-		addons = append(addons, addon)
-	}
-
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("get addons: %w", rows.Err())
-	}
-
-	return addons, nil
 }

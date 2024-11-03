@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ortin779/private_theatre_api/ctx"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/ctx"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func HandleSlotsGet(slotsStore models.SlotStore) http.HandlerFunc {
+func HandleSlotsGet(slotsService service.SlotsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slots, err := slotsStore.GetSlots()
+		slots, err := slotsService.GetSlots()
 
 		if err != nil {
 			log.Println(err)
@@ -25,7 +26,7 @@ func HandleSlotsGet(slotsStore models.SlotStore) http.HandlerFunc {
 	}
 }
 
-func HandleCreateSlot(slotsStore models.SlotStore) http.HandlerFunc {
+func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var createSlotParams models.CreateSlotParams
 
@@ -59,7 +60,7 @@ func HandleCreateSlot(slotsStore models.SlotStore) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		err = slotsStore.AddSlot(slot)
+		err = slotsService.AddSlot(slot)
 		if err != nil {
 			log.Println(err)
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")

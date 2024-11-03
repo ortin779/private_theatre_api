@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/ortin779/private_theatre_api/auth"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/auth"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func HandleCreateUser(userStore models.UserStore) http.HandlerFunc {
+func HandleCreateUser(usersService service.UsersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var userParams models.UserParams
 
@@ -45,7 +46,7 @@ func HandleCreateUser(userStore models.UserStore) http.HandlerFunc {
 			Roles:    userParams.Roles,
 		}
 
-		err = userStore.Create(user)
+		err = usersService.Create(user)
 
 		if err != nil {
 			log.Println(err.Error())

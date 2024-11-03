@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ortin779/private_theatre_api/auth"
-	"github.com/ortin779/private_theatre_api/ctx"
-	"github.com/ortin779/private_theatre_api/handlers"
+	"github.com/ortin779/private_theatre_api/api/auth"
+	"github.com/ortin779/private_theatre_api/api/ctx"
+	"github.com/ortin779/private_theatre_api/api/handlers"
 )
 
 func AdminAuthorization(next http.HandlerFunc) http.HandlerFunc {

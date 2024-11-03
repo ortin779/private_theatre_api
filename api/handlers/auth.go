@@ -7,11 +7,12 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ortin779/private_theatre_api/auth"
-	"github.com/ortin779/private_theatre_api/models"
+	"github.com/ortin779/private_theatre_api/api/auth"
+	"github.com/ortin779/private_theatre_api/api/models"
+	"github.com/ortin779/private_theatre_api/api/service"
 )
 
-func Login(userStore models.UserStore) http.HandlerFunc {
+func Login(usersService service.UsersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var loginParams models.LoginParams
 
@@ -29,7 +30,7 @@ func Login(userStore models.UserStore) http.HandlerFunc {
 			return
 		}
 
-		user, err := userStore.GetByEmail(loginParams.Email)
+		user, err := usersService.GetByEmail(loginParams.Email)
 
 		if err != nil {
 			log.Println(err.Error())
@@ -69,7 +70,7 @@ func Login(userStore models.UserStore) http.HandlerFunc {
 	}
 }
 
-func RefreshToken(userStore models.UserStore) http.HandlerFunc {
+func RefreshToken(usersService service.UsersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var refreshBody struct {
 			RefreshToken string `json:"refresh_token"`
