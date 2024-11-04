@@ -28,12 +28,13 @@ func HandleSlotsGet(slotsService service.SlotsService) http.HandlerFunc {
 
 func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := ctx.GetLogger(r.Context())
 		var createSlotParams models.CreateSlotParams
 
 		err := json.NewDecoder(r.Body).Decode(&createSlotParams)
 
 		if err != nil {
-			log.Println(err)
+			logger.Error(err.Error())
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

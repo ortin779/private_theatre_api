@@ -10,6 +10,7 @@ import (
 	"github.com/ortin779/private_theatre_api/api/server"
 	"github.com/ortin779/private_theatre_api/api/service"
 	"github.com/ortin779/private_theatre_api/config"
+	"github.com/ortin779/private_theatre_api/logger"
 )
 
 func main() {
@@ -25,6 +26,11 @@ func main() {
 	}
 
 	defer db.Close()
+
+	// logger
+	logger := logger.NewLogger()
+
+	defer logger.Sync()
 
 	// Repository initialization
 	slotsRepository := repository.NewSlotsRepo(db)
@@ -42,7 +48,7 @@ func main() {
 	paymentService := service.NewRazorpayService(paymentsRepo, cfg.Razorpay)
 	usersService := service.NewUsersService(usersRepo)
 
-	svr := server.NewServer(slotsService, theatreService, addonsService, ordersService, usersService, paymentService)
+	svr := server.NewServer(logger, slotsService, theatreService, addonsService, ordersService, usersService, paymentService)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),

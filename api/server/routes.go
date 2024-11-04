@@ -7,10 +7,12 @@ import (
 	"github.com/ortin779/private_theatre_api/api/handlers"
 	"github.com/ortin779/private_theatre_api/api/middleware"
 	"github.com/ortin779/private_theatre_api/api/service"
+	"go.uber.org/zap"
 )
 
 func addRoutes(
 	c *chi.Mux,
+	logger *zap.Logger,
 	slotsService service.SlotsService,
 	theatresService service.TheatresService,
 	addonsService service.AddonsService,
@@ -18,6 +20,9 @@ func addRoutes(
 	usersService service.UsersService,
 	paymentService service.RazorpayService,
 ) {
+	loggerMiddleware := middleware.LoggerMiddleware(logger)
+	c.Use(loggerMiddleware)
+
 	c.Get("/healthz", healthHandler)
 
 	c.Post("/slots", middleware.AdminAuthorization(handlers.HandleCreateSlot(slotsService)))
