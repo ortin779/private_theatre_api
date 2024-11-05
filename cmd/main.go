@@ -1,54 +1,38 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/ortin779/private_theatre_api/api/repository"
 	"github.com/ortin779/private_theatre_api/api/server"
-	"github.com/ortin779/private_theatre_api/api/service"
 	"github.com/ortin779/private_theatre_api/config"
 	"github.com/ortin779/private_theatre_api/logger"
+	"go.uber.org/zap"
 )
 
-func main() {
+func run(ctx context.Context, logger *zap.Logger) error {
 	cfg, err := config.LoadConfigFromEnv()
 
 	if err != nil {
-		log.Fatal(err.Error())
+		logger.Error(err.Error())
+		return err
 	}
 
 	db, err := cfg.Postgres.Open()
 	if err != nil {
-		log.Fatal(err.Error())
+		logger.Error(err.Error())
+		return err
 	}
 
 	defer db.Close()
 
-	// logger
-	logger := logger.NewLogger()
-
-	defer logger.Sync()
-
-	// Repository initialization
-	slotsRepository := repository.NewSlotsRepo(db)
-	theatreRepository := repository.NewTheatreRepository(db)
-	addonRepo := repository.NewAddonRepository(db)
-	ordersRepo := repository.NewOrderRepository(db)
-	usersRepo := repository.NewUsersRepository(db)
-	paymentsRepo := repository.NewPaymentsRepository(db)
-
-	// Service Initialization
-	addonsService := service.NewAddonService(addonRepo)
-	ordersService := service.NewOrdersService(ordersRepo)
-	slotsService := service.NewSlotsService(slotsRepository)
-	theatreService := service.NewTheatreService(theatreRepository)
-	paymentService := service.NewRazorpayService(paymentsRepo, cfg.Razorpay)
-	usersService := service.NewUsersService(usersRepo)
-
-	svr := server.NewServer(logger, slotsService, theatreService, addonsService, ordersService, usersService, paymentService)
+	svr := server.NewServer(logger, db, cfg)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
@@ -56,9 +40,47 @@ func main() {
 	}
 
 	fmt.Println("Server stared on port ", cfg.Server.Port)
-	err = httpServer.ListenAndServe()
 
-	if err != nil {
-		log.Fatalln(err.Error())
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGTERM, syscall.SIGINT)
+
+	serverErr := make(chan error, 1)
+
+	go func() {
+		serverErr <- httpServer.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		return fmt.Errorf("server error: %w", err)
+
+	case sig := <-shutdown:
+		logger.Info("shutdown", zap.String("status", "shutdown started"), zap.Any("signal", sig))
+		defer logger.Info("shutdown", zap.String("status", "shutdown completed"), zap.Any("signal", sig))
+
+		ctx, cancel := context.WithTimeout(ctx, time.Duration(cfg.Web.ShutdownTimeout))
+		defer cancel()
+
+		if err := httpServer.Shutdown(ctx); err != nil {
+			httpServer.Close()
+			return fmt.Errorf("could not stop server gracefully: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func main() {
+
+	// logger
+	logger := logger.NewLogger()
+
+	defer logger.Sync()
+
+	ctx := context.Background()
+
+	if err := run(ctx, logger); err != nil {
+		logger.Error("startup", zap.String("msg", err.Error()))
+		os.Exit(1)
 	}
 }

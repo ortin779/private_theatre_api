@@ -16,6 +16,7 @@ type Config struct {
 	}
 	Postgres db.PostgresConfig
 	Razorpay models.RazorpayConfig
+	Web      struct{ ShutdownTimeout int }
 }
 
 func LoadConfigFromEnv() (*Config, error) {
@@ -44,5 +45,6 @@ func LoadConfigFromEnv() (*Config, error) {
 			Key:    os.Getenv("RAZORPAY_KEY"),
 			Secret: os.Getenv("RAZORPAY_SECRET"),
 		},
+		Web: struct{ ShutdownTimeout int }{8},
 	}, nil
 }
