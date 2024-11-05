@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -10,14 +9,16 @@ import (
 	"github.com/ortin779/private_theatre_api/api/ctx"
 	"github.com/ortin779/private_theatre_api/api/models"
 	"github.com/ortin779/private_theatre_api/api/service"
+	"go.uber.org/zap"
 )
 
 func HandleSlotsGet(slotsService service.SlotsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := ctx.GetLogger(r.Context())
 		slots, err := slotsService.GetSlots()
 
 		if err != nil {
-			log.Println(err)
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -34,7 +35,7 @@ func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 		err := json.NewDecoder(r.Body).Decode(&createSlotParams)
 
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -47,6 +48,7 @@ func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 
 		userId, err := ctx.UserIdValue(r.Context())
 		if err != nil {
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -63,7 +65,7 @@ func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 
 		err = slotsService.AddSlot(slot)
 		if err != nil {
-			log.Println(err)
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

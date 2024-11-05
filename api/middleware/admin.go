@@ -12,7 +12,7 @@ import (
 
 func AdminAuthorization(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		accessToken := getTokenFromReqest(r)
+		accessToken := getTokenFromRequest(r)
 		claims, err := auth.ValidateToken(accessToken)
 
 		if err != nil {
@@ -32,7 +32,7 @@ func AdminAuthorization(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func getTokenFromReqest(r *http.Request) string {
+func getTokenFromRequest(r *http.Request) string {
 	token := r.Header.Get("Authorization")
 
 	tokenParts := strings.Split(token, " ")

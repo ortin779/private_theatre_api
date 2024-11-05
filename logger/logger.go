@@ -16,7 +16,7 @@ func NewLogger() *zap.Logger {
 	cfg := zap.Config{
 		Level:             zap.NewAtomicLevelAt(zap.InfoLevel),
 		Development:       os.Getenv("APP_ENV") != "development",
-		DisableCaller:     false,
+		DisableCaller:     true,
 		DisableStacktrace: false,
 		Sampling:          nil,
 		EncoderConfig:     encoderCfg,

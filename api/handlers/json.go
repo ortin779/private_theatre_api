@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-type HttpErrorReponse struct {
+type HttpErrorResponse struct {
 	Message string `json:"message"`
 }
 
@@ -15,7 +15,7 @@ func RespondWithError(w http.ResponseWriter, code int, msg string) {
 		log.Printf("Responding with 5XX error: %s", msg)
 	}
 
-	errResp := HttpErrorReponse{
+	errResp := HttpErrorResponse{
 		Message: msg,
 	}
 	RespondWithJson(w, code, errResp)

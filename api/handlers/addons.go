@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -10,26 +9,31 @@ import (
 	"github.com/ortin779/private_theatre_api/api/ctx"
 	"github.com/ortin779/private_theatre_api/api/models"
 	"github.com/ortin779/private_theatre_api/api/service"
+	"go.uber.org/zap"
 )
 
 func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := ctx.GetLogger(r.Context())
 		var addonParams models.AddonParams
 
 		err := json.NewDecoder(r.Body).Decode(&addonParams)
 
 		if err != nil {
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 
 		if errs := addonParams.Validate(); len(errs) > 0 {
+			logger.Error("bad request", zap.Any("errors", errs))
 			RespondWithJson(w, http.StatusBadRequest, errs)
 			return
 		}
 
 		userId, err := ctx.UserIdValue(r.Context())
 		if err != nil {
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -48,7 +52,7 @@ func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 
 		err = addonsService.CreateAddon(addon)
 		if err != nil {
-			log.Println(err)
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -59,9 +63,10 @@ func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 
 func HandleGetAddons(addonService service.AddonsService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := ctx.GetLogger(r.Context())
 		addons, err := addonService.GetAllAddons()
 		if err != nil {
-			log.Println(err)
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}

@@ -20,6 +20,8 @@ func addRoutes(
 	usersService service.UsersService,
 	paymentService service.RazorpayService,
 ) {
+
+	//add middlewares
 	loggerMiddleware := middleware.LoggerMiddleware(logger)
 	c.Use(loggerMiddleware)
 

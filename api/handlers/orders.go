@@ -11,6 +11,7 @@ import (
 	"github.com/ortin779/private_theatre_api/api/ctx"
 	"github.com/ortin779/private_theatre_api/api/models"
 	"github.com/ortin779/private_theatre_api/api/service"
+	"go.uber.org/zap"
 )
 
 func HandleCreateOrder(ordersService service.OrdersService, paymentService service.RazorpayService) http.HandlerFunc {
@@ -22,13 +23,13 @@ func HandleCreateOrder(ordersService service.OrdersService, paymentService servi
 		err := json.NewDecoder(r.Body).Decode(&orderParams)
 
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
 
 		if errs := orderParams.Validate(); len(errs) > 0 {
-			logger.Error(err.Error())
+			logger.Error("bad request", zap.Any("errs", errs))
 			RespondWithJson(w, http.StatusBadRequest, errs)
 			return
 		}
@@ -38,7 +39,7 @@ func HandleCreateOrder(ordersService service.OrdersService, paymentService servi
 		razorpayOrderId, err := paymentService.CreateOrder(normalizedPrice)
 
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong, while creating payment")
 			return
 		}
@@ -62,9 +63,11 @@ func HandleCreateOrder(ordersService service.OrdersService, paymentService servi
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
+				logger.Error("bad request", zap.String("error", err.Error()))
 				RespondWithError(w, http.StatusBadRequest, err.Error())
 				return
 			}
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -78,7 +81,7 @@ func HandleGetAllOrders(ordersService service.OrdersService) http.HandlerFunc {
 		orders, err := ordersService.GetAll()
 
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -89,14 +92,17 @@ func HandleGetAllOrders(ordersService service.OrdersService) http.HandlerFunc {
 
 func HandleGetOrderById(ordersService service.OrdersService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := ctx.GetLogger(r.Context())
 		orderId := r.PathValue("orderId")
 		if _, err := uuid.Parse(orderId); err != nil {
+			logger.Error("not found", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusNotFound, "invalid order id")
 			return
 		}
 
 		orderDetails, err := ordersService.GetById(orderId)
 		if err != nil {
+			logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
