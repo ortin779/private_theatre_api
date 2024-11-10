@@ -12,28 +12,40 @@ import (
 	"go.uber.org/zap"
 )
 
-func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
+type AddonsHandler struct {
+	addonsService service.AddonsService
+	logger        *zap.Logger
+}
+
+func NewAddonsHandler(logger *zap.Logger, addonsService service.AddonsService) *AddonsHandler {
+	return &AddonsHandler{
+		addonsService: addonsService,
+		logger:        logger,
+	}
+}
+
+func (ah *AddonsHandler) HandleCreateAddon() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
+
 		var addonParams models.AddonParams
 
 		err := json.NewDecoder(r.Body).Decode(&addonParams)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			ah.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 
 		if errs := addonParams.Validate(); len(errs) > 0 {
-			logger.Error("bad request", zap.Any("errors", errs))
+			ah.logger.Error("bad request", zap.Any("errors", errs))
 			RespondWithJson(w, http.StatusBadRequest, errs)
 			return
 		}
 
 		userId, err := ctx.UserIdValue(r.Context())
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			ah.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -50,9 +62,9 @@ func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		err = addonsService.CreateAddon(addon)
+		err = ah.addonsService.CreateAddon(addon)
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			ah.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -61,12 +73,11 @@ func HandleCreateAddon(addonsService service.AddonsService) http.HandlerFunc {
 	}
 }
 
-func HandleGetAddons(addonService service.AddonsService) http.HandlerFunc {
+func (ah *AddonsHandler) HandleGetAddons() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
-		addons, err := addonService.GetAllAddons()
+		addons, err := ah.addonsService.GetAllAddons()
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			ah.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -75,9 +86,9 @@ func HandleGetAddons(addonService service.AddonsService) http.HandlerFunc {
 	}
 }
 
-func HandleGetAddonCategories(addonService service.AddonsService) http.HandlerFunc {
+func (ah *AddonsHandler) HandleGetAddonCategories() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		categories := addonService.GetCategories()
+		categories := ah.addonsService.GetCategories()
 		RespondWithJson(w, http.StatusCreated, categories)
 	}
 }

@@ -12,13 +12,24 @@ import (
 	"go.uber.org/zap"
 )
 
-func HandleSlotsGet(slotsService service.SlotsService) http.HandlerFunc {
+type SlotsHandler struct {
+	logger       *zap.Logger
+	slotsService service.SlotsService
+}
+
+func NewSlotsHandler(logger *zap.Logger, slotsService service.SlotsService) *SlotsHandler {
+	return &SlotsHandler{
+		logger:       logger,
+		slotsService: slotsService,
+	}
+}
+
+func (slotsHandler *SlotsHandler) HandleSlotsGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
-		slots, err := slotsService.GetSlots()
+		slots, err := slotsHandler.slotsService.GetSlots()
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			slotsHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -27,15 +38,14 @@ func HandleSlotsGet(slotsService service.SlotsService) http.HandlerFunc {
 	}
 }
 
-func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
+func (slotsHandler *SlotsHandler) HandleCreateSlot() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
 		var createSlotParams models.CreateSlotParams
 
 		err := json.NewDecoder(r.Body).Decode(&createSlotParams)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			slotsHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -48,7 +58,7 @@ func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 
 		userId, err := ctx.UserIdValue(r.Context())
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			slotsHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -63,9 +73,9 @@ func HandleCreateSlot(slotsService service.SlotsService) http.HandlerFunc {
 			UpdatedAt: time.Now(),
 		}
 
-		err = slotsService.AddSlot(slot)
+		err = slotsHandler.slotsService.AddSlot(slot)
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			slotsHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

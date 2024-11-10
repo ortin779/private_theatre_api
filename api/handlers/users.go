@@ -7,27 +7,37 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ortin779/private_theatre_api/api/auth"
-	"github.com/ortin779/private_theatre_api/api/ctx"
 	"github.com/ortin779/private_theatre_api/api/models"
 	"github.com/ortin779/private_theatre_api/api/service"
 	"go.uber.org/zap"
 )
 
-func HandleCreateUser(usersService service.UsersService) http.HandlerFunc {
+type UsersHandler struct {
+	usersService service.UsersService
+	logger       *zap.Logger
+}
+
+func NewUsersHandler(logger *zap.Logger, usersService service.UsersService) *UsersHandler {
+	return &UsersHandler{
+		usersService: usersService,
+		logger:       logger,
+	}
+}
+
+func (usrHandler *UsersHandler) HandleCreateUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
 		var userParams models.UserParams
 
 		err := json.NewDecoder(r.Body).Decode(&userParams)
 
 		if err != nil {
-			logger.Error("invalid request", zap.String("error", err.Error()))
+			usrHandler.logger.Error("invalid request", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		if errs := userParams.Validate(); len(errs) > 0 {
-			logger.Error("invalid request", zap.Any("errors", errs))
+			usrHandler.logger.Error("invalid request", zap.Any("errors", errs))
 			RespondWithJson(w, http.StatusBadRequest, errs)
 			return
 		}
@@ -35,7 +45,7 @@ func HandleCreateUser(usersService service.UsersService) http.HandlerFunc {
 		hashedPassword, err := auth.HashPassword(userParams.Password)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			usrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithJson(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}
@@ -48,10 +58,10 @@ func HandleCreateUser(usersService service.UsersService) http.HandlerFunc {
 			Roles:    userParams.Roles,
 		}
 
-		err = usersService.Create(user)
+		err = usrHandler.usersService.Create(user)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			usrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "something went wrong")
 			return
 		}

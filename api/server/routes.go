@@ -36,33 +36,43 @@ func addRoutes(
 	paymentService := service.NewRazorpayService(paymentsRepo, cfg.Razorpay)
 	usersService := service.NewUsersService(usersRepo)
 
+	// Handlers Initialization
+	addonsHandler := handlers.NewAddonsHandler(logger, addonsService)
+	authHandler := handlers.NewAuthHandler(logger, usersService)
+	slotsHandler := handlers.NewSlotsHandler(logger, slotsService)
+	ordersHandler := handlers.NewOrdersHandler(logger, ordersService, paymentService)
+	paymentsHandler := handlers.NewPaymentHandler(logger, paymentService)
+	theatreHandler := handlers.NewTheatreHandler(logger, theatreService)
+	usersHandler := handlers.NewUsersHandler(logger, usersService)
+
 	//add middlewares
+	c.Use(middleware.RequestIdMiddleware)
 	loggerMiddleware := middleware.LoggerMiddleware(logger)
 	c.Use(loggerMiddleware)
 
 	c.Get("/healthz", healthHandler)
 
-	c.Post("/slots", middleware.AdminAuthorization(handlers.HandleCreateSlot(slotsService)))
-	c.Get("/slots", handlers.HandleSlotsGet(slotsService))
+	c.Post("/slots", middleware.AdminAuthorization(slotsHandler.HandleCreateSlot()))
+	c.Get("/slots", slotsHandler.HandleSlotsGet())
 
-	c.Post("/theatres", middleware.AdminAuthorization(handlers.HandleCreateTheatre(theatreService)))
-	c.Get("/theatres", handlers.HandleGetTheatres(theatreService))
-	c.Get("/theatres/{id}", handlers.HandleGetTheatreDetails(theatreService))
+	c.Post("/theatres", middleware.AdminAuthorization(theatreHandler.HandleCreateTheatre()))
+	c.Get("/theatres", theatreHandler.HandleGetTheatres())
+	c.Get("/theatres/{id}", theatreHandler.HandleGetTheatreDetails())
 
-	c.Post("/addons", middleware.AdminAuthorization(handlers.HandleCreateAddon(addonsService)))
-	c.Get("/addons", handlers.HandleGetAddons(addonsService))
-	c.Get("/addons/categories", handlers.HandleGetAddonCategories(addonsService))
+	c.Post("/addons", middleware.AdminAuthorization(addonsHandler.HandleCreateAddon()))
+	c.Get("/addons", addonsHandler.HandleGetAddons())
+	c.Get("/addons/categories", addonsHandler.HandleGetAddonCategories())
 
-	c.Post("/orders", handlers.HandleCreateOrder(ordersService, paymentService))
-	c.Get("/orders", handlers.HandleGetAllOrders(ordersService))
-	c.Get("/orders/{orderId}", handlers.HandleGetOrderById(ordersService))
+	c.Post("/orders", ordersHandler.HandleCreateOrder())
+	c.Get("/orders", ordersHandler.HandleGetAllOrders())
+	c.Get("/orders/{orderId}", ordersHandler.HandleGetOrderById())
 
-	c.Post("/users", middleware.AdminAuthorization(handlers.HandleCreateUser(usersService)))
+	c.Post("/users", middleware.AdminAuthorization(usersHandler.HandleCreateUser()))
 
-	c.Post("/login", handlers.Login(usersService))
-	c.Post("/refresh-token", handlers.RefreshToken(usersService))
+	c.Post("/login", authHandler.Login())
+	c.Post("/refresh-token", authHandler.RefreshToken())
 
-	c.Post("/verify-payment", handlers.VerifyPayment(paymentService))
+	c.Post("/verify-payment", paymentsHandler.VerifyPayment())
 
 }
 

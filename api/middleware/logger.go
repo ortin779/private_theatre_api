@@ -3,30 +3,28 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/ortin779/private_theatre_api/api/ctx"
 	"go.uber.org/zap"
 )
 
 func LoggerMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
+	loggerMid := func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			reqLogger := logger.With(
+				zap.String("req-id", ctx.GetRequestId(r.Context())),
+				zap.String("path", r.URL.Path),
+				zap.String("method", r.Method),
+				zap.String("addrs", r.RemoteAddr),
+			)
 
-				reqLogger := logger.With(
-					zap.String("req-id", uuid.NewString()),
-					zap.String("path", r.URL.Path),
-				)
+			reqLogger.Info("incoming request")
 
-				ctx := ctx.WithLogger(r.Context(), reqLogger)
-				r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
 
-				reqLogger.Info("incoming request")
-
-				next.ServeHTTP(w, r)
-
-				reqLogger.Info("request completed")
-			},
-		)
+			reqLogger.Info("request completed")
+		}
+		return http.HandlerFunc(fn)
 	}
+
+	return loggerMid
 }

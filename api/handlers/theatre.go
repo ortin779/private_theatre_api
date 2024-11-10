@@ -14,28 +14,40 @@ import (
 	"go.uber.org/zap"
 )
 
-func HandleCreateTheatre(ts service.TheatresService) http.HandlerFunc {
+type TheatreHandler struct {
+	logger         *zap.Logger
+	theatreService service.TheatresService
+}
+
+func NewTheatreHandler(logger *zap.Logger, theatreService service.TheatresService) *TheatreHandler {
+	return &TheatreHandler{
+		logger:         logger,
+		theatreService: theatreService,
+	}
+}
+
+func (thrHandler *TheatreHandler) HandleCreateTheatre() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
+
 		var createTheatreParams models.CreateTheatreParams
 
 		err := json.NewDecoder(r.Body).Decode(&createTheatreParams)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			thrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 
 		if errs := createTheatreParams.Validate(); len(errs) > 0 {
-			logger.Error("invalid request", zap.Any("errors", errs))
+			thrHandler.logger.Error("invalid request", zap.Any("errors", errs))
 			RespondWithJson(w, http.StatusBadRequest, errs)
 			return
 		}
 
 		userId, err := ctx.UserIdValue(r.Context())
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			thrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -55,10 +67,10 @@ func HandleCreateTheatre(ts service.TheatresService) http.HandlerFunc {
 			UpdatedAt:              time.Now(),
 		}
 
-		err = ts.Create(theatre, createTheatreParams.Slots)
+		err = thrHandler.theatreService.Create(theatre, createTheatreParams.Slots)
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			thrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -68,13 +80,13 @@ func HandleCreateTheatre(ts service.TheatresService) http.HandlerFunc {
 	}
 }
 
-func HandleGetTheatres(ts service.TheatresService) http.HandlerFunc {
+func (thrHandler *TheatreHandler) HandleGetTheatres() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
-		theatres, err := ts.GetTheatres()
+
+		theatres, err := thrHandler.theatreService.GetTheatres()
 
 		if err != nil {
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			thrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -83,23 +95,23 @@ func HandleGetTheatres(ts service.TheatresService) http.HandlerFunc {
 	}
 }
 
-func HandleGetTheatreDetails(ts service.TheatresService) http.HandlerFunc {
+func (thrHandler *TheatreHandler) HandleGetTheatreDetails() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := ctx.GetLogger(r.Context())
+
 		id := r.PathValue("id")
 		if id == "" {
-			logger.Error("invalid request", zap.String("error", "theatre id can not be empty"))
+			thrHandler.logger.Error("invalid request", zap.String("error", "theatre id can not be empty"))
 			RespondWithError(w, http.StatusBadRequest, "invalid theatre id")
 		}
 
-		theatres, err := ts.GetTheatreDetails(id)
+		theatres, err := thrHandler.theatreService.GetTheatreDetails(id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				logger.Error("not found", zap.String("error", "no theatre found with given id"))
+				thrHandler.logger.Error("not found", zap.String("error", "no theatre found with given id"))
 				RespondWithError(w, 404, "no theatre found with given details")
 				return
 			}
-			logger.Error("internal server error", zap.String("error", err.Error()))
+			thrHandler.logger.Error("internal server error", zap.String("error", err.Error()))
 			RespondWithError(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
